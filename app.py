@@ -1,6 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
-from streamlit_js_eval import streamlit_js_eval
+from streamlit_geolocation import streamlit_geolocation
 import sqlite3
 from datetime import datetime, timedelta
 import urllib.parse
@@ -131,6 +131,41 @@ header {{
 }}
 html, body, [class*="css"] {{
     font-family: Arial, sans-serif;
+    color: #3b3039 !important;
+}}
+/* Mobile readability */
+.stMarkdown, .stMarkdown p, .stMarkdown span, .stMarkdown li,
+[data-testid="stTextInput"] label, [data-testid="stTextArea"] label,
+[data-testid="stNumberInput"] label, [data-testid="stSelectbox"] label,
+[data-testid="stRadio"] label, [data-testid="stCheckbox"] label,
+[data-testid="stFileUploader"] label, .stCaption,
+[data-testid="stWidgetLabel"] {{
+    color: #3b3039 !important;
+}}
+[data-testid="stTextInput"] input, [data-testid="stTextArea"] textarea,
+[data-testid="stNumberInput"] input {{
+    color: #2f2630 !important;
+    -webkit-text-fill-color: #2f2630 !important;
+    background: rgba(255,255,255,0.92) !important;
+}}
+.stLinkButton a, .stLinkButton a:visited {{
+    color: #3b3039 !important;
+}}
+/* Keep emergency panel text white */
+.emergency, .emergency * {{
+    color: #ffffff !important;
+}}
+@media (max-width: 640px) {{
+    .block-container {{
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+    }}
+    .big-title {{ font-size: 28px; }}
+    .section {{ font-size: 18px; }}
+    .stButton > button, .stLinkButton > a {{
+        min-height: 52px !important;
+        font-size: 15px !important;
+    }}
 }}
 /* Main glass containers */
 [data-testid="stVerticalBlockBorderWrapper"] {{
@@ -538,40 +573,25 @@ with st.sidebar:
 # LOCATION
 # =========================================================
 
-location = streamlit_js_eval(
-    js_expressions="""
-    new Promise((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                resolve({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                });
-            },
-            (error) => {
-                resolve({
-                    latitude: null,
-                    longitude: null,
-                    error: error.message
-                });
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 30000
-            }
-        );
-    })
-    """,
-    key="get_location"
-)
+# Browser GPS requires the user to grant location permission.
+# The dedicated Streamlit geolocation component is more reliable for
+# a deployed Streamlit app than evaluating geolocation JavaScript directly.
+if "latitude" not in st.session_state:
+    st.session_state.latitude = None
+if "longitude" not in st.session_state:
+    st.session_state.longitude = None
 
-latitude = None
-longitude = None
+location = streamlit_geolocation()
 
-if location:
-    latitude = location.get("latitude")
-    longitude = location.get("longitude")
+if isinstance(location, dict):
+    lat = location.get("latitude")
+    lon = location.get("longitude")
+    if lat is not None and lon is not None:
+        st.session_state.latitude = lat
+        st.session_state.longitude = lon
+
+latitude = st.session_state.latitude
+longitude = st.session_state.longitude
 
 # =========================================================
 # FIRST-TIME SETUP
@@ -668,6 +688,26 @@ if profile is None:
                 st.rerun()
 
     st.stop()
+
+# =========================================================
+# LOCATION STATUS
+# =========================================================
+
+if profile is not None:
+    st.markdown(
+        '<div class="section">📍 Your Current Location</div>',
+        unsafe_allow_html=True
+    )
+
+    if latitude is not None and longitude is not None:
+        st.success(f"📍 Location secured: {latitude:.6f}, {longitude:.6f}")
+        maps_url = (
+            "https://www.google.com/maps/search/?api=1"
+            f"&query={latitude},{longitude}"
+        )
+        st.link_button("🗺️ VIEW MY LOCATION", maps_url, use_container_width=True)
+    else:
+        st.warning("Location not captured yet. Tap the location button above and allow browser location permission.")
 
 # =========================================================
 # HOME
@@ -1069,7 +1109,7 @@ AI Prediction:
 {st.session_state.last_prediction}
 
 Last Known Location:
-{latitude}, {longitude}
+{location_text}
 
 Time:
 {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
