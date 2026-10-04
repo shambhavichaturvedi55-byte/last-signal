@@ -1,5 +1,6 @@
 streamlit
 streamlit-js-eval
+streamlit-geolocation
 joblib
 pandas
 scikit-learn
