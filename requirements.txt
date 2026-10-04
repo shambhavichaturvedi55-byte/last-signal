@@ -1,0 +1,5 @@
+streamlit
+streamlit-js-eval
+joblib
+pandas
+scikit-learn
